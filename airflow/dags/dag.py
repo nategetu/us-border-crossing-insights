@@ -17,7 +17,7 @@ with DAG(
     )
   
   extract_data_task = BashOperator(
-    task_id = 'download_data'
+    task_id = 'download_data',
     bash_command = 'bash command fr fr'
   )
   
