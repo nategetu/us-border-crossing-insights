@@ -1,14 +1,29 @@
 import datetime 
+import os 
+
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
-from airflow.operators.bash import BashOperator
-from airflow.providers.amazon.aws.operators.athena import AthenaOperator, AthenaSensor
+from airflow.providers.amazon.aws.operators.redshift import RedshiftOperator, S3ToRedshiftOperator
+from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+
+from python_scripts import process_file, parquet_to_s3
+# get ENV variables
+region = os.environ.get('AWS_REGION')
+AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+AWS_BUCKET_NAME = os.environ.get('AWS_BUCKET_NAME')
+
+# set other variables
+DB_USERNAME = "zoomcamp"
+DATABASE_NAME = "bcbdb"
+REDSHIFT_CLUSTER_IDENTIFIER = "bcb-redshift-cluster"
+s3_hook = S3Hook()
 
 with DAG(
     'us_border_crossing_pipeline',
-    description = 'An ETL pipeline for data.gov US border crossing data using Airflow, S3, and Athena',
-    start_date = datetime.date(2025,3,28),
+    description = 'An ETL pipeline for data.gov US border crossing data using Airflow, S3, and Redshift',
+    start_date=datetime.datetime(2025, 3, 28, tzinfo=datetime.timezone.utc),
     schedule_interval = datetime.timedelta(days=1)
 ) as dag:
     
@@ -16,22 +31,88 @@ with DAG(
         task_id='start_pipeline',
     )
   
-  extract_data_task = BashOperator(
-    task_id = 'download_data',
-    bash_command = 'bash command fr fr'
-  )
+  load_bridge_task = EmptyOperator(
+        task_id='load_to_s3_bridge',
+    )
   
-  load_to_s3_task = PythonOperator(
-    task_id = 'load_to_s3',
-    python_callable = 'python/load_to_s3.py'
+  redshift_bridge_task = EmptyOperator(
+        task_id='redshift_bridge',
+    )
+  
+  # Define the arguments for each function call
+  load_to_s3_args = [
+      {'task_id': 'file_1', 'args': {'arg1': "border_crossings.csv https://data.transportation.gov/api/views/keg4-3bc2/rows.csv?accessType=DOWNLOAD", 'arg2': 'border_crossings'}},
+      {'task_id': 'file_2', 'args': {'arg1': "https://hub.arcgis.com/api/v3/datasets/e3b6065cce144be8a13a59e03c4195fe_0/downloads/data?format=csv&spatialRefId=3857&where=1%3D1", 'arg2': 'principal_ports'}},
+      {'task_id': 'file_3', 'args': {'arg1': "https://hub.arcgis.com/api/v3/datasets/6755534edf0f441894e021912486db31_0/downloads/data?format=csv&spatialRefId=4269&where=1%3D1", 'arg2': 'port_statistical_areas'}}
+  ]
+  
+  local_load_tasks = []
+  for arg_iter in load_to_s3_args:
+      task = PythonOperator(
+          task_id=f"local_load_task_{arg_iter['task_id']}",
+          python_callable=process_file,
+          op_kwargs=arg_iter['args'],
+          dag=dag
+      )
+      local_load_tasks.append(task)
+
+  load_to_s3_tasks = []
+  for arg_iter in load_to_s3_args:
+      task = PythonOperator(
+          task_id=f"load_to_s3_task_{arg_iter['task_id']}",
+          python_callable=process_file,
+          op_kwargs=arg_iter['args'],
+          dag=dag
+      )
+      load_to_s3_tasks.append(task)
+      
+  for local_task, s3_task in zip(local_load_tasks, load_to_s3_tasks):
+      local_task >> s3_task
+
+  create_table_task = RedshiftOperator(
+    task_id='create_redshift_table',
+    database=DATABASE_NAME,
+    cluster_identifier=REDSHIFT_CLUSTER_IDENTIFIER,
+    db_user=DB_USERNAME,
+    sql='sql/create_tables.sql',
+    aws_conn_id='aws_default',
+    task_concurrency=1,
+    wait_for_completion=True
   )
 
-  create_table_Task = AthenaOperator(
-    task_id='create_athena_table',
-    database=athena_database,
-    sql='sql/create_table.sql'
+  s3_file_paths = [f for f in s3_hook.list_keys(bucket_name=AWS_BUCKET_NAME) if f.endswith('.parquet')]
+
+  transfer_s3_to_redshift_tasks = []
+  for s3_file in s3_file_paths:
+    transfer_s3_to_redshift = S3ToRedshiftOperator(
+        task_id="transfer_s3_to_redshift",
+        redshift_data_api_kwargs={
+            "database": DATABASE_NAME,
+            "cluster_identifier": REDSHIFT_CLUSTER_IDENTIFIER,
+            "db_user": DB_USERNAME,
+            "wait_for_completion": True,
+        },
+        s3_bucket=AWS_BUCKET_NAME,
+        s3_key=s3_file,
+        schema="PUBLIC",
+        table=s3_file.split('.')[0],
+        copy_options=["parquet", "IGNOREHEADER 1"],
+    )
+    transfer_s3_to_redshift_tasks.append(transfer_s3_to_redshift)
+
+  transform_table_task = RedshiftOperator(
+    task_id='transform_redshift_table',
+    database=DATABASE_NAME,
+    cluster_identifier=REDSHIFT_CLUSTER_IDENTIFIER,
+    db_user=DB_USERNAME,
+    sql='sql/transform_tables.sql',
+    aws_conn_id='aws_default',
+    task_concurrency=1,
+    wait_for_completion=True
   )
 
   end_pipeline_task = EmptyOperator(
       task_id='end_pipeline',
   )
+
+  start_pipeline_task >> local_load_tasks >> load_bridge_task >> load_to_s3_tasks >> transfer_s3_to_redshift_tasks >> redshift_bridge_task >> create_table_task >> transform_table_task >> end_pipeline_task
