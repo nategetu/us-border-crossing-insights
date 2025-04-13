@@ -1,6 +1,9 @@
 import datetime 
 import os 
+import json
 
+import boto3
+from botocore.exceptions import ClientError
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
@@ -8,16 +11,40 @@ from airflow.providers.amazon.aws.operators.redshift import RedshiftOperator, S3
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
 from python_scripts import process_file, parquet_to_s3
-# get ENV variables
-region = os.environ.get('AWS_REGION')
-AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
-AWS_BUCKET_NAME = os.environ.get('AWS_BUCKET_NAME')
 
-# set other variables
-DB_USERNAME = "zoomcamp"
-DATABASE_NAME = "bcbdb"
-REDSHIFT_CLUSTER_IDENTIFIER = "bcb-redshift-cluster"
+# get ENV variables
+def get_secret(secret_name_txt):
+
+    secret_name = secret_name_txt
+    region_name = "us-east-1"
+
+    # Create a Secrets Manager client
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
+
+    try:
+        get_secret_value_response = client.get_secret_value(
+            SecretId=secret_name
+        )
+    except ClientError as e:
+        # For a list of exceptions thrown, see
+        # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+        raise e
+
+# Fetch secrets
+secrets = get_secret("us-border-crossing-project")
+
+# Use secrets in your DAG
+AWS_ACCESS_KEY_ID = secrets["AWS_ACCESS_KEY_ID"]
+AWS_SECRET_ACCESS_KEY = secrets["AWS_SECRET_ACCESS_KEY"]
+AWS_BUCKET_NAME = secrets["AWS_BUCKET_NAME"]
+DATABASE_NAME = secrets["DATABASE_NAME"]
+DB_USERNAME = secrets["DB_USERNAME"]
+REDSHIFT_CLUSTER_IDENTIFIER = secrets["REDSHIFT_CLUSTER_IDENTIFIER"]
+
 s3_hook = S3Hook()
 
 with DAG(
