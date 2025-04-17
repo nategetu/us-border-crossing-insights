@@ -1,4 +1,4 @@
-create table border_crossing_data
+create table if not exists border_crossings
 (
     port_name VARCHAR(50),
     state VARCHAR(25),
@@ -11,7 +11,7 @@ create table border_crossing_data
     longitude FLOAT8
 );
 
-create table principal_ports
+create table if not exists principal_ports
 (
     fid INT,
     port INT,
@@ -25,7 +25,7 @@ create table principal_ports
     domestic_amt INT
 );
 
-create table port_statistical_areas
+create table if not exists port_statistical_areas
 (
     portidpk INT,
     featuredescription VARCHAR(4096)
