@@ -15,8 +15,6 @@ def process_file(url, file_name):
             pd_data = pd_data.drop(columns=['Point'])
         elif file_name == 'principal_ports':
             pd_data = pd_data.drop(columns = ['X', 'Y'])
-        elif file_name == 'port_statistical_areas':
-            pd_data = pd_data[['PORTIDPK', 'FEATUREDESCRIPTION']]
         pa_table = pa.Table.from_pandas(pd_data)
         pq.write_table(pa_table, f'{file_name}.parquet')
 
