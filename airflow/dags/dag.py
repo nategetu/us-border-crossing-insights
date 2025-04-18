@@ -72,7 +72,7 @@ with DAG(
   # Define the arguments for each function call
   source_data_args = [
       {'task_id': 'file_1', 'args': {'url': "https://data.transportation.gov/api/views/keg4-3bc2/rows.csv?accessType=DOWNLOAD", 'file_name': 'border_crossings'}},
-      {'task_id': 'file_2', 'args': {'url': "https://hub.arcgis.com/api/v3/datasets/e3b6065cce144be8a13a59e03c4195fe_0/downloads/data?format=csv&spatialRefId=3857&where=1%3D1", 'file_name': 'principal_ports'}}
+      {'task_id': 'file_2', 'args': {'url': "https://stg-arcgisazurecdataprod7.az.arcgis.com/exportfiles-18851-225514/ndc_7722178988887026623.csv?sv=2018-03-28&sr=b&sig=Ub%2F%2BUtQ5jKty7k%2FYlglMAAsfyJwciLlbDJteJ7bPXAg%3D&se=2025-04-18T16%3A45%3A31Z&sp=r", 'file_name': 'principal_ports'}}
     ]
   
   local_load_tasks = []
