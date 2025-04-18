@@ -47,7 +47,6 @@ secrets = get_secret("us-border-crossing-project")
 AWS_ACCESS_KEY_ID = secrets.get("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = secrets.get("AWS_SECRET_ACCESS_KEY")
 AWS_BUCKET_NAME = secrets.get("AWS_BUCKET_NAME")
-DEV_DB_NAME = 'dev'
 DATABASE_NAME = secrets.get("DATABASE_NAME")
 DB_USERNAME = secrets.get("DB_USERNAME")
 DB_PASSWORD = secrets.get("DB_PASSWORD")
@@ -66,10 +65,6 @@ with DAG(
         task_id='start_pipeline',
     )
   
-  load_bridge_task = EmptyOperator(
-        task_id='load_to_s3_bridge',
-    )
-  
   redshift_bridge_task = EmptyOperator(
         task_id='redshift_bridge',
     )
@@ -77,9 +72,8 @@ with DAG(
   # Define the arguments for each function call
   source_data_args = [
       {'task_id': 'file_1', 'args': {'url': "https://data.transportation.gov/api/views/keg4-3bc2/rows.csv?accessType=DOWNLOAD", 'file_name': 'border_crossings'}},
-      {'task_id': 'file_2', 'args': {'url': "https://hub.arcgis.com/api/v3/datasets/e3b6065cce144be8a13a59e03c4195fe_0/downloads/data?format=csv&spatialRefId=3857&where=1%3D1", 'file_name': 'principal_ports'}},
-      {'task_id': 'file_3', 'args': {'url': "https://hub.arcgis.com/api/v3/datasets/6755534edf0f441894e021912486db31_0/downloads/data?format=csv&spatialRefId=4269&where=1%3D1", 'file_name': 'port_statistical_areas'}}
-  ]
+      {'task_id': 'file_2', 'args': {'url': "https://hub.arcgis.com/api/v3/datasets/e3b6065cce144be8a13a59e03c4195fe_0/downloads/data?format=csv&spatialRefId=3857&where=1%3D1", 'file_name': 'principal_ports'}}
+    ]
   
   local_load_tasks = []
   for arg_iter in source_data_args:
@@ -104,8 +98,8 @@ with DAG(
   create_redshift_table_tasks = []
   for arg_iter in source_data_args:
     file_name = arg_iter['args'].get('file_name')
-    sql_ddl = create_redshift_table(file_name=file_name)
-
+    sql_ddl = create_redshift_table(filename=file_name)
+    
     create_table_task = RedshiftDataOperator(
         task_id=f'create_redshift_table_{file_name}',
         database=DATABASE_NAME,
@@ -121,11 +115,11 @@ with DAG(
   cleanup_tasks = []
   for arg_iter in source_data_args:
     file_name = arg_iter['args'].get('file_name')
-    sql_ddl = create_redshift_table(file_name=file_name)
+    sql_ddl = create_redshift_table(filename=file_name)
 
     cleanup_task = PythonOperator(
         task_id=f'cleanup_{file_name}',
-          python_callable=cleanup_task,
+          python_callable=cleanup_files,
           op_kwargs={'file_name': arg_iter['args'].get('file_name')},  
           dag=dag
       )
@@ -170,6 +164,6 @@ with DAG(
       start_pipeline_task >> local_task
 
   for local_task, s3_task, redshift_tbl_ddl_task, cleanup_task, transfer_s3_to_redshift_task in zip(local_load_tasks, load_to_s3_tasks, create_redshift_table_tasks, cleanup_tasks, transfer_s3_to_redshift_tasks):
-      local_task >> load_bridge_task >> s3_task >> redshift_tbl_ddl_task >> cleanup_task >> transfer_s3_to_redshift_task
+      local_task >> s3_task >> redshift_tbl_ddl_task >> cleanup_task >> transfer_s3_to_redshift_task >> redshift_bridge_task
 
   redshift_bridge_task >> transform_table_task >> end_pipeline_task
