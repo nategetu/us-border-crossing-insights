@@ -11,9 +11,6 @@ In light of recent changes to US policy surrounding trade and international trav
 3. Repository Structure
 4. Setup Instructions
 5. How to Run the Project
-6. SQL Transformations
-7. Future Improvements
-8. Acknowledgments
 
 ---
 
@@ -35,7 +32,7 @@ The project uses the following architecture:
 4. **Data Transformation**: SQL scripts executed by Airflow transform raw data into structured tables in Redshift.
 5. **Data Warehouse**: Amazon Redshift serves as the data warehouse for storing transformed data.
 
-See ~[here](./images/Architecture_Flow.jpeg) for visualization
+See ![here](./images/Architecture_Flow.jpeg) for visualization
 ---
 
 ## Repository Structure
@@ -54,7 +51,7 @@ us-border-crossing-insights/
 ├── [README.md]                       # Project documentation
 ├── requirements.txt                  # Python dependencies
 ├── cloudformation.yaml               # AWS CloudFormation template for infrastructure
-
+```
 ---
 
 ## Setup Instructions
@@ -117,6 +114,6 @@ AWS credentials saved in ~/.aws/credentials
     - Connect the `port_tonnage` and `port_monthly_traffic` Redshift datasets to Quicksight 
     - Recreate the dashboards seen here
     ![Monthly Crossings](./images/Monthly_crossings_by_type.png) ![Import Ports](./images/Ports_by_foreign_tonnage.png)
-    and linked ![here](https://us-east-1.quicksight.aws.amazon.com/sn/account/zoomcamp/dashboards/165e08b2-de82-427f-9727-b2676695d19a/sheets/165e08b2-de82-427f-9727-b2676695d19a_b703f637-e760-43c3-97c6-49a14d254452)
+    and linked [here](https://us-east-1.quicksight.aws.amazon.com/sn/account/zoomcamp/dashboards/165e08b2-de82-427f-9727-b2676695d19a/sheets/165e08b2-de82-427f-9727-b2676695d19a_b703f637-e760-43c3-97c6-49a14d254452)
 
 ---
