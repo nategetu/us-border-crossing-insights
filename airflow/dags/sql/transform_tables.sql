@@ -18,6 +18,7 @@ create table bcbdb.prod.port_tonnage as (
             when between 0.4 and 0.6 then '40-60%'
             when between 0.6 and 0.8 then '60-80%'
             when between 0.8 and 1 then '80-100%'
+            else 'N/A'
         end as binned_foreign_pct,
         case domestic_pct
             when between 0 and 0.2 then '0-20%'
@@ -25,6 +26,7 @@ create table bcbdb.prod.port_tonnage as (
             when between 0.4 and 0.6 then '40-60%'
             when between 0.6 and 0.8 then '60-80%'
             when between 0.8 and 1 then '80-100%'
+            else 'N/A'
         end as binned_domestic_pct,
         case import_pct
             when between 0 and 0.2 then '0-20%'
@@ -32,6 +34,7 @@ create table bcbdb.prod.port_tonnage as (
             when between 0.4 and 0.6 then '40-60%'
             when between 0.6 and 0.8 then '60-80%'
             when between 0.8 and 1 then '80-100%'
+            else 'N/A'
         end as binned_import_pct,
         case export_pct
             when between 0 and 0.2 then '0-20%'
@@ -39,6 +42,7 @@ create table bcbdb.prod.port_tonnage as (
             when between 0.4 and 0.6 then '40-60%'
             when between 0.6 and 0.8 then '60-80%'
             when between 0.8 and 1 then '80-100%'
+            else 'N/A'
         end as binned_export_pct
     from
         bcbdb.public.principal_ports pp
