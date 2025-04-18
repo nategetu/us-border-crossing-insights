@@ -2,7 +2,7 @@
 DROP TABLE IF EXISTS bcbdb.prod.port_tonnage;
 
 create table bcbdb.prod.port_tonnage as (
-    select
+    select distinct
         pp.port,
         pp.port_name,
         pp.total as total_tonnage,
