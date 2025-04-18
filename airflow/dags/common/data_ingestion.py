@@ -13,8 +13,6 @@ def process_file(url, file_name):
         pd_data = pd.read_csv(data)
         if file_name == 'border_crossings':
             pd_data = pd_data.drop(columns=['Point'])
-        elif file_name == 'principal_ports':
-            pd_data = pd_data.drop(columns = ['X', 'Y'])
         pa_table = pa.Table.from_pandas(pd_data)
         pq.write_table(pa_table, f'{file_name}.parquet')
 
